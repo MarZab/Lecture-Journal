@@ -8,7 +8,7 @@ Author: Marko Zabreznik
 Author URI:	http://zabreznik.net
 */
 
-define('LECJOU_VERSION', 0.2);
+define('LECJOU_VERSION', 0.4);
 define('LECJOU_DB_VERSION', 1);
 define('LECJOU_PLUGIN_DIR', __DIR__.'/');
 define('LECJOU_PLUGIN_URL', plugins_url($path = '/Lecture-Journal/'));
@@ -36,6 +36,25 @@ function lecjou_register_lecture() {
 	global $wpdb;
 	$variable_name = 'classmeta';
 	$wpdb->$variable_name = $wpdb->prefix.'classmeta';
+
+	// classes taxonomy
+	$labels = array(
+		'name' => _x( 'Classes', 'lecjou' ),
+		'singular_name' => _x( 'Class', 'lecjou' ),
+		'search_items' =>  __( 'Search Classes', 'lecjou' ),
+		'popular_items' => null,
+		'all_items' => __( 'All Classes', 'lecjou' ),
+		'parent_item' => null,
+		'parent_item_colon' => null,
+		'edit_item' => __( 'Edit Class', 'lecjou' ),
+		'update_item' => __( 'Update Class', 'lecjou' ),
+		'add_new_item' => __( 'Add New Class', 'lecjou' ),
+		'new_item_name' => __( 'New Class Name', 'lecjou' ),
+		'separate_items_with_commas' => __( 'Separate classes with commas', 'lecjou' ),
+		'add_or_remove_items' => __( 'Add or remove classes', 'lecjou' ),
+		'choose_from_most_used' => __( 'Choose from the most used classes', 'lecjou' ),
+		'menu_name' => __( 'Classes', 'lecjou' ),
+	);
 	
 	register_taxonomy( 
 		'class', 
@@ -43,6 +62,7 @@ function lecjou_register_lecture() {
 		array( 
 			'hierarchical' => false, 
 			'label' => 'Classes', 
+			'labels' => $labels,
 			'query_var' => true,
 			'show_in_nav_menus' => false,
 			'show_tagcloud' => false,
@@ -54,23 +74,236 @@ function lecjou_register_lecture() {
 			)
 		) 
 	);
+	add_filter( 'manage_edit-class_columns', 'lecjou_manage_class_columns', 10, 1);
+	add_filter( 'manage_class_custom_column', 'lecjou_manage_class_custom_column', 10, 3 );
 	
 	// lectures post type
-    $args = array( 
-        'hierarchical' => false,
-        'supports' => array( 'title', 'editor', 'author' ),
-        'taxonomies' => array( 'classes' ),
-        'public' => true,
-        'show_ui' => true,
-        'show_in_menu' => true,
+	$args = array(
+		'labels' => array(
+			'name' => _x( 'Lectures', 'lecjou' ),
+			'singular_name' => _x( 'Lecture', 'lecjou' ),
+			'menu_name' => _x( 'Lectures', 'lecjou' ),
+		),
+		'hierarchical' => false,
+		'supports' => array( 'title', 'editor', 'author' ),
+		'taxonomies' => array( 'classes' ),
+		'public' => true,
+		'show_ui' => true,
+		'show_in_menu' => true,
 
-        'show_in_nav_menus' => true,
-        'publicly_queryable' => true,
-        'exclude_from_search' => false,
-        'has_archive' => true,
-        'can_export' => true,
+		'show_in_nav_menus' => true,
+		'publicly_queryable' => true,
+		'exclude_from_search' => false,
+		'has_archive' => true,
+		'can_export' => true,
 
-    );
+	);
 	register_post_type( 'lecture', $args );
 	
 }
+
+//  //  Class Addins
+
+// class extra fields edit
+add_action( 'class_edit_form_fields', 'lecjou_class_edit_form_fields', 10, 2);
+function lecjou_class_edit_form_fields($tag,$taxonomy) {
+	$school_year = get_metadata($taxonomy, $tag->term_id, 'school_year', true);
+	$location = get_metadata($taxonomy, $tag->term_id, 'location', true);
+	$startdate = get_metadata($taxonomy, $tag->term_id, 'startdate', true);
+	$enddate  = get_metadata($taxonomy, $tag->term_id, 'enddate', true);
+
+	foreach(get_metadata($taxonomy, $tag->term_id, 'lecturers', false) as $l) {
+		$lecturers[] = $l['user_login'];
+	}
+	$lecturers = ($lecturers) ? implode(',',$lecturers) : '';
+
+	$students  = get_metadata($taxonomy, $tag->term_id, 'students', false);
+
+	// glej spodi k shranjuje
+	$studentsfields = array(
+		'name'  => __( 'Name', 'lecjou' ),
+		'email' => __( 'E-mail', 'lecjou' ),
+		'phone' => __( 'Phone', 'lecjou' ),
+		'test1' => __( 'Test 1', 'lecjou' ),
+		'test2' => __( 'Test 2', 'lecjou' ),
+		'test3' => __( 'Test 3', 'lecjou' ),
+		'test4' => __( 'Test 4', 'lecjou' ),
+		'notes' => __( 'Notes', 'lecjou' ),
+	);
+?>
+	<tr class="form-field">
+		<th scope="row" valign="top"><label for="school_year">School Year</label></th>
+		<td>
+			<input type="text" name="school_year" id="school_year"
+				value="<?php echo $school_year; ?>"/><br />
+				<span class="description">The school year of this class.</span>
+		</td>
+	</tr>
+	<tr class="form-field">
+		<th scope="row" valign="top"><label for="location">Location</label></th>
+		<td>
+			<input type="text" name="location" id="location"
+				value="<?php echo $location; ?>"/><br />
+				<span class="description">Where this class will be held.</span>
+		</td>
+	</tr>
+	<tr class="form-field">
+		<th scope="row" valign="top"><label for="startdate">Start Date</label></th>
+		<td>
+			<input type="text" name="startdate" id="startdate"
+				value="<?php echo $startdate; ?>"/><br />
+				<span class="description">When this class will start.</span>
+		</td>
+	</tr>
+	<tr class="form-field">
+		<th scope="row" valign="top"><label for="enddate">End Date</label></th>
+		<td>
+			<input type="text" name="enddate" id="enddate"
+				value="<?php echo $enddate; ?>"/><br />
+				<span class="description">When this class will end.</span>
+		</td>
+	</tr>
+	<tr class="form-field">
+		<th scope="row" valign="top"><label for="lecturers">Lecturers</label></th>
+		<td>
+			<input type="text" name="lecturers" id="lecturers"
+				value="<?php echo $lecturers; ?>"/><br />
+				<span class="description">Who will lecture this class.</span>
+				<script>
+jQuery(document).ready(function() {
+	jQuery('#lecturers').suggest("<?php echo get_bloginfo('wpurl'); ?>/wp-admin/admin-ajax.php?action=lecjou_lecturers",{multiple:true, multipleSep: ","});
+});
+				</script>
+		</td>
+	</tr>
+	<tr class="form-field">
+		<th scope="row" valign="top"><label for="students">Students</label></th>
+		<td>
+<style>
+#lecjou_students td {padding:0px}
+.lecjou_student_delete {width:20px !important}
+</style>
+<table id="lecjou_students">
+	<thead>
+<?php
+foreach ($studentsfields as $f)
+	echo '<th>',$f,'</th>';
+?>
+		<th class="lecjou_student_delete">Delete</th>
+	</thead>
+	<tbody>
+<?php
+	$i = 0;
+	foreach ($students as $student) {
+		echo '<tr>';
+		foreach ($studentsfields as $k => $f) {
+			if ( $k == 'name'){
+				echo '<td><input type="text" name="students['.$i.']['.$k.']" value="'.$student[$k].'" readonly="readonly"/></td>';
+			}
+			else{
+				echo '<td><input type="text" name="students['.$i.']['.$k.']" value="'.$student[$k].'"/></td>';
+			}
+		}
+		echo '<td class="lecjou_student_delete"><input type="checkbox" name="students['.$i.'][delete]" value=""/></td></tr>';
+		$i++;
+	}
+	// print some empty fields
+	for ( $j = 10; $j>0; $j--) {
+		echo '<tr>';
+		foreach ($studentsfields as $k => $f)
+			echo '<td><input type="text" name="students['.$i.']['.$k.']" value=""/></td>';
+		echo '</tr>';
+		$i++;
+	}
+
+?>
+	</tbody>
+</table>
+	<br />
+	<span class="description">The students in this class.</span>
+		</td>
+	</tr>
+	<?php
+}
+// class extra fields save
+add_action( 'edited_class', 'lecjou_edited_class', 10, 2);
+function lecjou_edited_class($term_id, $tt_id) {
+	$taxonomy='class';
+	if (!$term_id) return;
+
+	if (isset($_POST['school_year']))
+		update_metadata($taxonomy, $term_id, 'school_year',$_POST['school_year']);
+	if (isset($_POST['location']))
+		update_metadata($taxonomy, $term_id, 'location',$_POST['location']);
+	if (isset($_POST['startdate']))
+		update_metadata($taxonomy, $term_id, 'startdate',$_POST['startdate']);
+	if (isset($_POST['enddate']))
+		update_metadata($taxonomy, $term_id, 'enddate',$_POST['enddate']);
+
+	if (isset($_POST['lecturers'])) {
+		delete_metadata($taxonomy, $term_id, 'lecturers' );
+		foreach (explode(',',$_POST['lecturers']) as $lec) {
+			$user = get_userdatabylogin(trim($lec));
+			if($user){
+				add_metadata($taxonomy, $term_id, 'lecturers', array('user_login'=>$user->user_login, 'display_name'=>$user->display_name), false);
+			}
+		}
+	}
+
+	if (isset($_POST['students'])) {
+		delete_metadata($taxonomy, $term_id, 'students' );
+		foreach ($_POST['students'] as $stu) {
+			$stu['name'] = trim($stu['name']);
+			if ($stu['name'] != '' && !isset($stu['delete']))
+				add_metadata($taxonomy, $term_id, 'students', $stu, false);
+		}
+	}
+}
+
+// class manage columns
+function lecjou_manage_class_columns($columns) {
+	// hack, inject some style to hide quick edit
+	echo '<style>.row-actions .inline {display:none} #col-right{float:none !important;width:auto !important}</style>';
+	$columns['school_year'] = "School Year";
+	$columns['lecturers'] = "Lecturers";
+	return $columns;
+}
+// class manage columns custom column
+function lecjou_manage_class_custom_column( $row_content, $column_name, $term_id ) {
+	switch($column_name) {
+		case 'lecturers':
+			$r = '<ul><li>';
+			foreach(get_metadata('class', $term_id, 'lecturers', false) as $l) {
+				$lecturers[] = $l['display_name'];
+			}
+			if ($lecturers)
+				$r.= implode('</li><li>',$lecturers);
+			else
+				return;
+			return $r.'</li></ul>';
+			break;
+		case 'school_year':
+			return get_metadata('class', $term_id, 'school_year', true);
+			break;
+	}
+}
+
+// ajax suggest usernames
+function lecjou_lecturers_ajax() {
+	global $wpdb;
+	$s = stripslashes( $_GET['q'] );
+
+	if ( false !== strpos( $s, ',' ) ) {
+		$s = explode( ',', $s );
+		$s = $s[count( $s ) - 1];
+	}
+	$s = trim( $s );
+	if ( strlen( $s ) < 2 )
+		die; // require 2 chars for matching
+
+	$results = $wpdb->get_col( $wpdb->prepare( "SELECT u.user_login FROM $wpdb->users as u WHERE u.user_login LIKE (%s)", '%' . like_escape( $s ) . '%' ) );
+
+	echo join( $results, "\n" );
+	die;
+}
+add_action('wp_ajax_lecjou_lecturers', 'lecjou_lecturers_ajax');
