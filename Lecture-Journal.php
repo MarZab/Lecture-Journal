@@ -83,6 +83,15 @@ function lecjou_register_lecture() {
 			'name' => _x( 'Lectures', 'lecjou' ),
 			'singular_name' => _x( 'Lecture', 'lecjou' ),
 			'menu_name' => _x( 'Lectures', 'lecjou' ),
+			'add_new' => _x( 'Add New', 'lecture' ),
+			'add_new_item' => _x( 'Add New Lecture', 'lecjou' ),
+			'edit_item' => _x( 'Edit Lecture', 'lecjou' ),
+			'new_item' => _x( 'New Lecture', 'lecjou' ),
+			'view_item' => _x( 'View Lecture', 'lecjou' ),
+			'search_items' => _x( 'Search Lectures', 'lecjou' ),
+			'not_found' => _x( 'No lectures found', 'lecjou' ),
+			'not_found_in_trash' => _x( 'No lectures found in Trash', 'lecjou' ),
+			'parent_item_colon' => _x( 'Parent Lecture:', 'lecjou' ),
 		),
 		'hierarchical' => false,
 		'supports' => array( 'title', 'editor', 'author' ),
@@ -91,12 +100,23 @@ function lecjou_register_lecture() {
 		'show_ui' => true,
 		'show_in_menu' => true,
 
+		'menu_icon' => LECJOU_PLUGIN_URL .'/icons/logo.png',
+
 		'show_in_nav_menus' => true,
 		'publicly_queryable' => true,
 		'exclude_from_search' => false,
 		'has_archive' => true,
 		'can_export' => true,
 
+		'capabilities' => array(
+			'edit_post' => 'read',
+			'edit_posts' => 'read',
+			'edit_others_posts' => 'add_users',
+			'publish_posts' => 'read',
+			'read_post' => 'read',
+			'read_private_posts' => 'add_users',
+			'delete_post' => 'read'
+		)
 	);
 	register_post_type( 'lecture', $args );
 	
@@ -307,3 +327,72 @@ function lecjou_lecturers_ajax() {
 	die;
 }
 add_action('wp_ajax_lecjou_lecturers', 'lecjou_lecturers_ajax');
+
+
+//  //  Editor Addins
+
+// editor class selection meta box
+add_action( 'add_meta_boxes', 'lecjou_add_custom_box' );
+function lecjou_add_custom_box() {
+    add_meta_box( 'lecjou_editor_details', __( 'Lecture Details', 'lecjou' ), 'lecjou_detailsbox', 'lecture', 'side' );
+}
+
+// remove classes metabox
+function lecjou_remove_page_fields() {
+	remove_meta_box( 'tagsdiv-class', 'lecture', 'side' );
+}
+add_action( 'admin_menu' , 'lecjou_remove_page_fields' );
+
+// editor details box
+function lecjou_detailsbox( $post ) {
+	$classlist=get_terms('class', 'hide_empty=0');
+	$classlistcurrent = wp_get_object_terms($post->ID, 'class');
+	if (is_array($classlistcurrent))$classlistcurrent = $classlistcurrent[0]->term_id;
+	else $classlistcurrent =-1;
+
+	$customfields = array(
+		'unit' => __( 'Unit', 'lecjou' ),
+		'topics' => __( 'Topic', 'lecjou' ),
+		'textbook' => __( 'Textbook Page', 'lecjou' ),
+		'workbook' => __( 'Workbook Page', 'lecjou' ),
+		'homework' => __( 'Homework Page', 'lecjou' ),
+	);
+	// get saved details
+	$customfieldsdata = get_post_meta($post->ID, 'lecjou_details', true );
+
+	echo '<style>.lecjou_details {width:100%} .lecjou_details_right input, .lecjou_details_right select { float:right} </style>
+	<table class="lecjou_details"><tbody>';
+
+	// class selection
+	echo '<tr><td><label class="lecjou_details_label" for="lecjou_class">Class:</label></td><td class="lecjou_details_right"><select style="width: 162px;" name="lecjou_class"><option value=""></option>';
+	foreach ($classlist as $class) {
+		echo '<option value="'.$class->term_id.'"';
+		if ($classlistcurrent ==$class->term_id) echo ' selected="selected"';
+		echo '>'.$class->name.'</option>';
+	}
+	echo '</select></td></tr>';
+
+	// number/len
+	echo '<tr><td><label class="lecjou_details_label">',__( 'Num. / Len.', 'lecjou' ),'<label></td><td class="lecjou_details_right">';
+
+	echo'<select style="width: 73px;" name="lecjou_details[count]"><option value="">';
+	foreach ( array('1','2','3') as $n ) {
+		echo '<option value="'.$n.'"';
+		if ($customfieldsdata['count'] == $n) echo ' selected="selected"';
+		echo '>'.$n.'h</option>';
+	}
+
+	echo '<input type="text" id="lecjou_details_number" name="lecjou_details[number]" value="';
+	if (isset ($customfieldsdata['number'])) echo $customfieldsdata['number'];
+	echo '" size="10" />';
+
+	echo '</td></tr>';
+
+	// other fields
+	foreach ($customfields as $key => $field) {
+		echo '<tr><td><label class="lecjou_details_label" for="lecjou_details[',$key,']">',$field,':</label></td><td class="lecjou_details_right"><textarea rows="2" cols="25" id="',$key,'" name="lecjou_details[',$key,']">';
+		if (isset ($customfieldsdata[$key])) echo $customfieldsdata[$key];
+		echo '</textarea></td></tr>';
+	}
+	echo '</tbody></table>';
+}
