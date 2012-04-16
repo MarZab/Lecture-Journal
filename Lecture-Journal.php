@@ -440,3 +440,28 @@ function lecjou_attendancebox( $post ) {
 		</table>
 	<?php
 }
+
+// editor class selection meta box save content
+add_action( 'save_post', 'lecjou_save_postdata' );
+function lecjou_save_postdata( $post_id ) {
+	// dont deal with autosave
+	if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) 
+		return;
+
+	// Check post type and permissions
+	if ( 'lecture' != $_POST['post_type'] || !current_user_can( 'edit_post', $post_id ) ) 
+		return;
+	  
+	// save details
+	update_post_meta($post_id, 'lecjou_details', $_POST['lecjou_details'], false);
+	
+	// save class
+	wp_set_object_terms( $post_id, intval($_POST['lecjou_class']), 'class', false );
+	
+	// save attendance
+	$attendance = array();
+	foreach ($_POST['students'] as $stu) {
+		$attendance[$stu['name']] = $stu;
+	}
+	update_post_meta($post_id, 'lecjou_attendance', $attendance, false);
+}
