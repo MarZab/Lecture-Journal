@@ -335,6 +335,7 @@ add_action('wp_ajax_lecjou_lecturers', 'lecjou_lecturers_ajax');
 add_action( 'add_meta_boxes', 'lecjou_add_custom_box' );
 function lecjou_add_custom_box() {
     add_meta_box( 'lecjou_editor_details', __( 'Lecture Details', 'lecjou' ), 'lecjou_detailsbox', 'lecture', 'side' );
+	add_meta_box( 'lecjou_editor_attendance', __( 'Lecture Attendance', 'lecjou' ), 'lecjou_attendancebox', 'lecture', 'normal' );
 }
 
 // remove classes metabox
@@ -395,4 +396,47 @@ function lecjou_detailsbox( $post ) {
 		echo '</textarea></td></tr>';
 	}
 	echo '</tbody></table>';
+}
+
+// editor attendance box
+function lecjou_attendancebox( $post ) {
+	$class = wp_get_object_terms($post->ID, 'class');
+	if (count($class) < 1) {
+		echo '<p style="text-align:center">'.__( 'Select a Class above to set attendance.', 'lecjou' ).'</p>';
+		return;
+	}
+
+	// get list of students
+	$students  = get_metadata('class', $class[0]->term_id, 'students', false);
+
+	// get old attendance data
+	$attendance = get_post_meta($post->ID, 'lecjou_attendance', true );
+	?>
+<table id="lecjou_attendance" style="width:100%; text-align:center">
+	<thead>
+		<th>Name</th>
+		<th>Attendance</th>
+		<th>Homework</th>
+		<th>E-mail</th>
+		<th>Phone</th>
+		<th>Note</th>
+	</thead>
+	<tbody>
+<?php
+	$i = 0;
+	foreach ($students as $student) {
+		echo '<tr>';
+		echo '<td>'.$student['name'].'<input type="hidden" name="students['.$i.'][name]" value="'.$student['name'].'"/></td>';
+		echo '<td><input type="checkbox" name="students['.$i.'][A]" '.((isset($attendance[$student['name']]['A']))?'checked="checked"':'').'/></td>';
+		echo '<td><input type="checkbox" name="students['.$i.'][H]" '.((isset($attendance[$student['name']]['H']))?'checked="checked"':'').'/></td>';
+		echo '<td>'.(isset($student['email'])?$student['email']:'').'</td>';
+		echo '<td>'.(isset($student['phone'])?$student['phone']:'').'</td>';
+		echo '<td><input type="text" name="students['.$i.'][note]" value="'.((isset($attendance[$student['name']]['note']))?$attendance[$student['name']]['note']:'').'"/></td>';
+		echo '</tr>';
+		$i++;
+	}
+	?>
+		</tbody>
+		</table>
+	<?php
 }
