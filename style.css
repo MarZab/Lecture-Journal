@@ -18,3 +18,7 @@
 .lecture .entry-content, .lecture  .entry-header{
 	float:left
 }
+
+.tax-class  #content  table {
+	padding-bottom:30px;
+}

@@ -554,6 +554,10 @@ function lecjou_set_template( $template ){
 				return $template;
 			// use default
 			return plugin_dir_path(__FILE__ ).'templates/single-lecture.php';
+		case is_tax('class'):
+			if (1 == preg_match('/^taxonomy-class((-(\S*))?).php/',$filename))
+				return $template;
+			return plugin_dir_path(__FILE__ ).'templates/taxonomy-class.php';
 	}
 	return $template;
 }
