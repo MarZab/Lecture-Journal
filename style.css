@@ -1,0 +1,20 @@
+.lecture  aside {
+	width:200px;
+	float:right;
+	padding-bottom:20px
+}
+.lecture aside table {
+	width:100%
+}
+.lecture aside h3 {
+	font-size: 15px;
+	font-weight: bold;
+	padding-top:20px;
+}
+.lecjou_tr {
+	text-align:right;
+	font-weight:bold !important
+}
+.lecture .entry-content, .lecture  .entry-header{
+	float:left
+}

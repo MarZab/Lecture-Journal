@@ -536,3 +536,24 @@ function lecjou_customcolums( $column, $post_id ) {
 			break;
 	}
 }
+
+// // Templates
+
+add_filter('template_include', 'lecjou_set_template');
+function lecjou_set_template( $template ){
+
+	// stylesheet
+	wp_enqueue_style( 'lecjou-style', plugins_url('style.css', __FILE__) );
+	
+	$filename = basename($template);
+
+	switch(true) {
+		case is_singular('lecture'):
+			// do we have the right template
+			if (1 == preg_match('/^single-lecture((-(\S*))?).php/',$filename))
+				return $template;
+			// use default
+			return plugin_dir_path(__FILE__ ).'templates/single-lecture.php';
+	}
+	return $template;
+}
