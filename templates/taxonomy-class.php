@@ -11,6 +11,12 @@ $class = get_term_by( 'slug', get_query_var( 'term' ), get_query_var( 'taxonomy'
 if (empty($class))
 	die('Lecture Journal Error: Taxonomy Error');
 
+// check access
+if ( !is_user_logged_in() && !lecjou_checkSecret($class->term_id) ) {
+	wp_redirect( wp_login_url( get_term_link($class) ), 307 );
+		exit;
+}
+
 global $wp_query;
 $wp_query->set('posts_per_page','10000');
 query_posts($wp_query->query_vars); 

@@ -132,6 +132,8 @@ function lecjou_class_edit_form_fields($tag,$taxonomy) {
 	$startdate = get_metadata($taxonomy, $tag->term_id, 'startdate', true);
 	$enddate  = get_metadata($taxonomy, $tag->term_id, 'enddate', true);
 
+	$secret  = get_metadata($taxonomy, $tag->term_id, 'secret', true);
+
 	foreach(get_metadata($taxonomy, $tag->term_id, 'lecturers', false) as $l) {
 		$lecturers[] = $l['user_login'];
 	}
@@ -197,6 +199,14 @@ jQuery(document).ready(function() {
 		</td>
 	</tr>
 	<tr class="form-field">
+        <th scope="row" valign="top"><label for="secret">Class Access Secret</label></th>
+        <td>
+            <input type="text" name="secret" id="secret" 
+                value="<?php echo $secret; ?>"/><br />
+				<span class="description">Secret for this class. Change to recall all access links.</span>
+        </td>
+    </tr>
+	<tr class="form-field">
 		<th scope="row" valign="top"><label for="students">Students</label></th>
 		<td>
 <style>
@@ -259,6 +269,10 @@ function lecjou_edited_class($term_id, $tt_id) {
 		update_metadata($taxonomy, $term_id, 'startdate',$_POST['startdate']);
 	if (isset($_POST['enddate']))
 		update_metadata($taxonomy, $term_id, 'enddate',$_POST['enddate']);
+	if (isset($_POST['secret']) && $_POST['secret'] != '')
+		update_metadata($taxonomy, $term_id, 'secret', $_POST['secret']);
+	else
+		update_metadata($taxonomy, $term_id, 'secret', uniqid());
 
 	if (isset($_POST['lecturers'])) {
 		delete_metadata($taxonomy, $term_id, 'lecturers' );
@@ -286,6 +300,7 @@ function lecjou_manage_class_columns($columns) {
 	echo '<style>.row-actions .inline {display:none} #col-right{float:none !important;width:auto !important}</style>';
 	$columns['school_year'] = "School Year";
 	$columns['lecturers'] = "Lecturers";
+    $columns['secret'] = "Secret Link";
 	return $columns;
 }
 // class manage columns custom column
@@ -305,6 +320,13 @@ function lecjou_manage_class_custom_column( $row_content, $column_name, $term_id
 		case 'school_year':
 			return get_metadata('class', $term_id, 'school_year', true);
 			break;
+		case 'secret':
+			$link = get_term_link(intval($term_id), 'class');
+			return sprintf('<a href="%s%ssecret=%s">Link</a>',
+				$link,
+				((strpos($link, '?'))?'&amp;':'?'),
+				get_metadata('class', $term_id, 'secret', true)
+			);
 	}
 }
 
@@ -420,6 +442,7 @@ function lecjou_attendancebox( $post ) {
 		<th>E-mail</th>
 		<th>Phone</th>
 		<th>Note</th>
+		<th>Grades</th>
 	</thead>
 	<tbody>
 <?php
@@ -432,6 +455,7 @@ function lecjou_attendancebox( $post ) {
 		echo '<td>'.(isset($student['email'])?$student['email']:'').'</td>';
 		echo '<td>'.(isset($student['phone'])?$student['phone']:'').'</td>';
 		echo '<td><input type="text" name="students['.$i.'][note]" value="'.((isset($attendance[$student['name']]['note']))?$attendance[$student['name']]['note']:'').'"/></td>';
+		echo '<td><a href="post.php?page=lecjou_gradesedit&amp;class='.$class[0]->term_id.'&amp;student='.$student['name'].'"><img src="'.LECJOU_PLUGIN_URL .'/icons/grade.png" alt="Grade '.$student['name'].'" title="Grade '.$student['name'].'" ></a></td>';
 		echo '</tr>';
 		$i++;
 	}
@@ -560,4 +584,136 @@ function lecjou_set_template( $template ){
 			return plugin_dir_path(__FILE__ ).'templates/taxonomy-class.php';
 	}
 	return $template;
+}
+
+// // Secret
+function lecjou_checkSecret($classID){
+// check for secret
+	$secret = get_metadata('class', $classID, 'secret', false); $secret = $secret[0];
+	
+	if (isset($secret) && $secret != '') {
+		if (isset($_COOKIE['lecjou_secrets']) && in_array($secret, $_COOKIE['lecjou_secrets'])) {
+			return true;
+		} elseif (isset($_GET['secret']) && $_GET['secret'] == $secret) {
+			setcookie('lecjou_secrets['.$classID.']', $secret);
+			return true;
+		} else {
+			return false;
+		}
+	}
+	return true;
+}
+
+/*
+	Edit grades page
+*/
+add_action('admin_menu', 'lecjou_gradesedit_menu');
+function lecjou_gradesedit_menu() {
+	add_submenu_page(null, 'Grades', 'Grades', 'read', 'lecjou_gradesedit', 'lecjou_gradesedit');
+}
+function lecjou_gradesedit() {
+	$taxonomy = 'class';
+
+	// get class from GET
+	if (!isset($_GET['class']) || !is_numeric($_GET['class'])) wp_die( __('You do not have permission to access this page.').' 1' );
+	$class = get_term_by('id',$_GET['class'],'class');
+	if ($class === FALSE) wp_die( __('You do not have permission to access this page.').' 2' );
+	
+	
+	// can current teacher edit this class or is admin
+	if (!current_user_can('add_users')) {
+		$u = wp_get_current_user();
+		$lecturers = array();
+		foreach(get_metadata($taxonomy, $class->term_id, 'lecturers', false) as $l) {
+			$lecturers[] = $l['user_login'];
+		}
+		if (!in_array($u->user_login, $lecturers))
+			wp_die( __('You do not have permission to access this page.') );
+			
+		unset($u,$lecturers);
+	}
+	
+	// get student from GET
+	if (!isset($_GET['student']) || !preg_match('#^[a-ž0-9\x20]+$#i', $_GET['student'])) wp_die( __('You do not have permission to access this page.').' 3' );
+	
+	// locate student in DB
+	$student = FALSE;
+	foreach (get_metadata($taxonomy, $class->term_id, 'students', false) as $s) {
+		if ($s['name'] == $_GET['student']) {
+			$student = $s;
+			break;
+		}
+	}
+	if ($student === FALSE) wp_die( __('Student Can Not be Found.').' 4' );
+	
+	// check for edits from POST
+	if (isset($_POST['students']) && is_array($_POST['students'])) {
+		$poststudent = $_POST['students'][0];
+		if ( $student['name'] === $poststudent['name'] ) {
+			$newstudent = $student;
+			foreach (array('test1','test2','test3','test4','notes') as $field)
+				$newstudent[$field] = $poststudent[$field];
+				
+			// update metadata for student
+			if (!update_metadata ($taxonomy, $class->term_id, 'students', $newstudent, $student )) wp_die( __('Error saving data.').' 5' );
+			
+			$student = $newstudent;
+		} else wp_die( __('You do not have permission to access this page.').' 4' );
+	}
+
+	// display form
+	$studentsfields = array(
+		'name' => 	__( 'Name', 'lecjou' ),
+		'email' => 	__( 'E-mail', 'lecjou' ),
+		'phone' => 	__( 'Phone', 'lecjou' ),
+		'test1' => 	__( 'Test 1', 'lecjou' ),
+		'test2' =>	__( 'Test 2', 'lecjou' ),
+		'test3' => 	__( 'Test 3', 'lecjou' ),
+		'test4' => 	__( 'Test 4', 'lecjou' ),
+		'notes' => 	__( 'Notes', 'lecjou' ),
+	);
+	
+?>
+	<style>
+		#studentgradesform input {
+			float:left;
+			margin-bottom:10px
+		}
+		#studentgradesform label {
+			width:50px; display:block; float:left; clear: left;
+		}
+		#studentgradesform, .studentgradesform p {
+			margin:20px 0 0 40px;
+		}
+		#studentgradesformsubmit {
+			margin-left:91px;
+			clear:left;
+			float:left;
+		}
+	</style>
+	
+	
+	<div class="wrap studentgradesform">
+		<div id="icon-edit" class="icon32 icon32-posts-lecture"><br></div><h2>Grade <strong><?php echo $student['name']; ?></strong></h2>
+		<p>Class: <strong><?php echo $class->name; ?></strong></p>
+
+		<form action="#" method="post">
+			<ul id="studentgradesform">
+<?php
+	$i=0;
+	foreach ($studentsfields as $k => $f) {
+		echo '<li><label for="students['.$i.']['.$k.']">',$f,'</label>';
+		if ( $k == 'name' || $k == 'email' || $k == 'phone' ){
+			echo '<input type="text" name="students['.$i.']['.$k.']" value="'.$student[$k].'" readonly="readonly"/></li>';
+		}
+		else{
+			echo '<input type="text" name="students['.$i.']['.$k.']" value="'.$student[$k].'"/></li>';
+		}
+	}
+?>
+			</ul>
+			<input id="studentgradesformsubmit" type="submit" value="Submit" />
+		</form>
+	</div>
+	<?php
 }

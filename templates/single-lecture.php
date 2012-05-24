@@ -47,6 +47,12 @@ if (have_posts()) {
 	if (count($class) > 0) {
 		$class = $class[0];
 
+		// check access
+		if ( !is_user_logged_in() && !lecjou_checkSecret($class->term_id) ) {
+			wp_redirect( wp_login_url( get_term_link($class) ), 307 );
+				exit;
+		}
+		
 		$lecturers  = get_metadata('class', $class->term_id, 'lecturers', false);
 		$students  = get_metadata('class', $class->term_id, 'students', false);
 		$attendance = get_post_meta(get_the_ID(), 'lecjou_attendance', true );
