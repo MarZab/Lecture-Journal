@@ -140,18 +140,20 @@ function lecjou_class_edit_form_fields($tag,$taxonomy) {
 	$lecturers = ($lecturers) ? implode(',',$lecturers) : '';
 
 	$students  = get_metadata($taxonomy, $tag->term_id, 'students', false);
+	$fields  = get_metadata($taxonomy, $tag->term_id, 'fields', true);
+	if (!$fields) {
+		$fields = 'test1,test2,test3,test4,notes';
+	}
 
 	// glej spodi k shranjuje
 	$studentsfields = array(
 		'name'  => __( 'Name', 'lecjou' ),
 		'email' => __( 'E-mail', 'lecjou' ),
 		'phone' => __( 'Phone', 'lecjou' ),
-		'test1' => __( 'Test 1', 'lecjou' ),
-		'test2' => __( 'Test 2', 'lecjou' ),
-		'test3' => __( 'Test 3', 'lecjou' ),
-		'test4' => __( 'Test 4', 'lecjou' ),
-		'notes' => __( 'Notes', 'lecjou' ),
 	);
+	foreach(array_map('trim',explode(",",$fields)) as $field) {
+		$studentsfields[$field] = __( ucwords($field), 'lecjou' );
+	}
 ?>
 	<tr class="form-field">
 		<th scope="row" valign="top"><label for="school_year">School Year</label></th>
@@ -204,6 +206,14 @@ jQuery(document).ready(function() {
             <input type="text" name="secret" id="secret" 
                 value="<?php echo $secret; ?>"/><br />
 				<span class="description">Secret for this class. Change to recall all access links.</span>
+        </td>
+    </tr>
+	<tr class="form-field">
+        <th scope="row" valign="top"><label for="fields">Class Student Fields</label></th>
+        <td>
+            <input type="text" name="fields" id="fields"
+                value="<?php echo $fields; ?>"/><br />
+				<span class="description">Fields for grading students, see below. ( WILL REMOVE DATA :) )</span>
         </td>
     </tr>
 	<tr class="form-field">
@@ -273,6 +283,8 @@ function lecjou_edited_class($term_id, $tt_id) {
 		update_metadata($taxonomy, $term_id, 'secret', $_POST['secret']);
 	else
 		update_metadata($taxonomy, $term_id, 'secret', uniqid());
+	if (isset($_POST['fields']))
+		update_metadata($taxonomy, $term_id, 'fields',$_POST['fields']);
 
 	if (isset($_POST['lecturers'])) {
 		delete_metadata($taxonomy, $term_id, 'lecturers' );
@@ -646,12 +658,27 @@ function lecjou_gradesedit() {
 	}
 	if ($student === FALSE) wp_die( __('Student Can Not be Found.').' 4' );
 	
+	$fields  = get_metadata($taxonomy, $class->term_id, 'fields', true);
+	if (!$fields) {
+		$fields = 'test1,test2,test3,test4,notes';
+	}
+
+	// glej spodi k shranjuje
+	$studentsfields = array(
+		'name'  => __( 'Name', 'lecjou' ),
+		'email' => __( 'E-mail', 'lecjou' ),
+		'phone' => __( 'Phone', 'lecjou' ),
+	);
+	foreach(array_map('trim',explode(",",$fields)) as $field) {
+		$studentsfields[$field] = __( ucwords($field), 'lecjou' );
+	}
+
 	// check for edits from POST
 	if (isset($_POST['students']) && is_array($_POST['students'])) {
 		$poststudent = $_POST['students'][0];
 		if ( $student['name'] === $poststudent['name'] ) {
 			$newstudent = $student;
-			foreach (array('test1','test2','test3','test4','notes') as $field)
+			foreach ($studentsfields as $field => $name)
 				$newstudent[$field] = $poststudent[$field];
 				
 			// update metadata for student
@@ -660,18 +687,6 @@ function lecjou_gradesedit() {
 			$student = $newstudent;
 		} else wp_die( __('You do not have permission to access this page.').' 4' );
 	}
-
-	// display form
-	$studentsfields = array(
-		'name' => 	__( 'Name', 'lecjou' ),
-		'email' => 	__( 'E-mail', 'lecjou' ),
-		'phone' => 	__( 'Phone', 'lecjou' ),
-		'test1' => 	__( 'Test 1', 'lecjou' ),
-		'test2' =>	__( 'Test 2', 'lecjou' ),
-		'test3' => 	__( 'Test 3', 'lecjou' ),
-		'test4' => 	__( 'Test 4', 'lecjou' ),
-		'notes' => 	__( 'Notes', 'lecjou' ),
-	);
 	
 ?>
 	<style>
