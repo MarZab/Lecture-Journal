@@ -57,11 +57,12 @@ function lecjou_reportdata ($lecturer) {
 
 // // export report ajax
 function lecjou_report_ajax() {
-	if (isset($_GET['lecturer']) && is_numeric($_GET['lecturer'])) {
+	if (isset($_GET['lecturer']) && is_numeric($_GET['lecturer']) && current_user_can('add_users')) {
+		// display report of another user
 		$lecturer = get_userdata($_GET['lecturer']);
 		if (!$lecturer) wp_die( __('Selected user does not exist.') );
 	}
-	else wp_die( __('No user selected.') );
+	else $lecturer = wp_get_current_user();
 	
 	header('Content-Encoding: UTF-8');
 	header('Content-type: text/html; charset=UTF-8');
@@ -105,10 +106,12 @@ add_action('wp_ajax_lecjou_report', 'lecjou_report_ajax');
 
 // // report page
 function lecjou_report() {
-	if (isset($_GET['lecturer']) && is_numeric($_GET['lecturer'])) {
+	if (isset($_GET['lecturer']) && is_numeric($_GET['lecturer']) && current_user_can('add_users')) {
+		// display report of another user
 		$lecturer = get_userdata($_GET['lecturer']);
 		if (!$lecturer) wp_die( __('Selected user does not exist.') );
-	} else wp_die( __('No user selected.') );
+	}
+	else $lecturer = wp_get_current_user();
 
 	?>
 <div class="wrap">
@@ -148,7 +151,7 @@ function lecjou_report() {
 }
 add_action('admin_menu', 'lecjou_report_menu');
 function lecjou_report_menu() {
-	add_submenu_page('edit.php?post_type=lecture', 'Report', 'Report', 'add_users', 'lecjou_report', 'lecjou_report');
+	add_submenu_page('edit.php?post_type=lecture', 'Report', 'Report', 'read', 'lecjou_report', 'lecjou_report');
 }
 
 // // users page report links
